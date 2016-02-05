@@ -58,11 +58,13 @@ int main(void) {
     char            s[INET6_ADDRSTRLEN];
     int             rv;
 
+    // Set the IP address lookup struct data.
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
+    // Get the IP address info.
     if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
@@ -75,13 +77,15 @@ int main(void) {
             perror("server: socket");
             continue;
         }
-
+        
+        // ERROR: setting the soct options didn't work.
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
                 sizeof(int)) == -1) {
             perror("setsockopt");
             exit(1);
         }
-
+        
+        // ERROR: Could not bind to socket. 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             close(sockfd);
             perror("server: bind");
