@@ -26,6 +26,6 @@ typedef enum {
 } CLIENT_CHOICE;                                 
 
 
-int client_main(int sockfd, char* * const buffer, int buffer_maxsize ); 
+int client_main(int sockfd, char* buffer, int buffer_maxsize ); 
 
 #endif /* CLIENT_MAIN_H */

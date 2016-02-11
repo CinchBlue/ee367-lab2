@@ -166,13 +166,31 @@ CLIENT_CHOICE parse_client_choice(char* str) {
 **      buffer_maxsize
 **          The maximum size of the INCOMING data buffer.
 */
-int client_main(int sockfd, char* * const buffer, int buffer_maxsize ) {
+int client_main(int sockfd, char* buffer, int buffer_maxsize ) {
     /* Set a zero-length string as the default value for the console buffer. */
     char console_buffer[MAXDATASIZE] = "\0";
     /* Start in an INVALID state for the client choice. */
     CLIENT_CHOICE client_choice = CLIENT_CHOICE_INVALID;
     /* Assume normal termination client_main(). Change upon ERROR. */
     int return_status = 0;
+
+    int numbytes = 0;
+    // If the number of bytes indicates a FAIL condition, exit. 
+    if ((numbytes = recv(sockfd, buffer, MAXDATASIZE-1, 0)) == -1) {
+        perror("recv");
+        return 1;
+    }
+
+    // This will fill up the [0:MAXDATASIZE-2] index, actually.
+
+    // It will receive [MAXDATASIZE-1] bytes (but we use zero-indexing so yeah)
+    
+    // Make sure that the last byte is NULL or \0 terminated.
+    // This will set the VERY last byte in the array to NULL to make it easier
+    // to parse using strings.
+    buffer[numbytes] = '\0';
+    printf("client: received '%s'\n", buffer);
+
 
     /**************************************************************************
     **  MAIN LOOP:

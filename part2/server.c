@@ -150,6 +150,23 @@ int main(void) {
     
     while (1) { // main accept() loop
         /* Stall if we have reached maximum connections. */
+
+        int k;
+        
+
+            // Release the connection from pipe_taken[pipe_no].
+           // pipe_taken[pipe_no] = 0;
+
+
+
+
+
+        k=0; 
+        for(; k < MAXCONNECTIONS; ++k)
+            printf("%d", pipe_taken[k]);
+            printf("\n");
+
+
         if  (num_connections+1 > MAXCONNECTIONS) {
             printf("server367: Max amount of connections reached; ");
             printf("waiting for a disconnect\n");
@@ -163,22 +180,6 @@ int main(void) {
             }
         }
 
-        /* Log the current connection number for the child. */
-        /* Find an open spot. */
-        int current_connection_no;
-        {
-            int j = 0;
-            /* We'll do a basic linear search. */
-            for(; j < MAXCONNECTIONS != j && pipe_taken[j] == 1; ++j);
-            printf("server367: new opening for connection found at slot %d\n", j);
-            /* Set the current connection number when a spot is found. */
-            current_connection_no = j;
-            /* Increase the total amount of connections. */
-            ++num_connections;
-        }
-        /* Reserve the found slot. */ 
-        pipe_taken[current_connection_no] = 1; 
-
         sin_size = sizeof(their_addr);
 
         // Accept a connection from a socket.
@@ -191,6 +192,28 @@ int main(void) {
             /* Upon accepting a connection, increment the connection counter. */
             ++num_connections;
         }
+
+	    /* Log the current connection number for the child. */
+        /* Find an open spot. */
+        int current_connection_no;
+        {
+            int j = 0;
+            /* We'll do a basic linear search. */
+            for(; j < MAXCONNECTIONS && pipe_taken[j] == 1; ++j);
+            printf("server367: new opening for connection found at slot %d\n", j);
+            /* Set the current connection number when a spot is found. */
+            current_connection_no = j;
+            /* Increase the total amount of connections. */
+            ++num_connections;
+            j = 0;
+        }
+        /* Reserve the found slot. */ 
+        pipe_taken[current_connection_no] = 1; 
+
+        k=0; 
+        for(; k < MAXCONNECTIONS; ++k)
+            printf("%d", pipe_taken[k]);
+            printf("\n");
 
         // Convert the IP address to a string.
         inet_ntop(their_addr.ss_family,
@@ -242,7 +265,6 @@ int main(void) {
 /******************************************************************************
 *******************************************************************************
 ******************************************************************************/
-            printf("Sup\n");
             /*
             **
             ** server_main is where we handle connections with clients.
@@ -260,16 +282,26 @@ int main(void) {
                 fprintf(stdout, "server367: OK: Successful termination of connection\n");
             } 
 
+            fprintf(stdout, "server367: Releasing pipe[%d]\n", pipe_no);
+
             // Close our parent-child pipes to flush. 
             close(pipe_in[pipe_no][0]);
             close(pipe_out[pipe_no][1]);
             // Close our socket (REMEMBER TO DO THIS!)
             close(new_fd);
-            // Release the connection from pipe_taken[pipe_no].
-            pipe_taken[pipe_no] = 0;
+            
+
 
             exit(0);
         }    
+
+/******************************************************************************
+** PARENT
+******************************************************************************/
+        
+        // PARENT: 
+
+
 
         // PARENT: Close our reference to the child process' socket.
         close(new_fd);  // parent doesn't need this 
@@ -279,13 +311,17 @@ int main(void) {
 
         char buffer[512] = "\0"; 
         {
-             int i = 0; 
-             for (; i < MAXCONNECTIONS; ++i) {
-                 printf("Pipe #%d taken = %d\n", i, pipe_taken[i]);
-                 read(pipe_out[i][0], buffer, 512);
-                 buffer[512] = '\0';
-                 fprintf(stdout, "(%s): %s\n", s, buffer);
-             } i = 0;
+            int i = 0; 
+	        /* Go through the connections, check for reads. */
+            for (; i < MAXCONNECTIONS; ++i) {
+		 
+		        if (pipe_taken[i] == 1) { 
+		        	printf("\tserver367: Pipe[%d] is occupied.\n", i);
+                    read(pipe_out[i][0], buffer, 512); 
+                    buffer[512] = '\0';
+                    fprintf(stdout, "\t(%s): %s", s, buffer);
+		        }
+            } i = 0;
         }
     }
 

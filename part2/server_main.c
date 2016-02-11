@@ -2,7 +2,7 @@
 
 int server_main(int sockfd) {
 
-    printf("Ending server_main()\n"); 
+    fprintf(stdout, "HELLO WORLD!\n");
 
     return 0;
 }

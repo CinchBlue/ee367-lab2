@@ -98,20 +98,8 @@ int main(int argc, char* argv[]) {
 
     freeaddrinfo(servinfo); // all done with this structure
 
-    // If the number of bytes indicates a FAIL condition, exit. 
-    if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-        perror("recv");
-        exit(1);
-    }
-    // This will fill up the [0:MAXDATASIZE-2] index, actually.
-    // It will receive [MAXDATASIZE-1] bytes (but we use zero-indexing so yeah)
     
-    // Make sure that the last byte is NULL or \0 terminated.
-    // This will set the VERY last byte in the array to NULL to make it easier
-    // to parse using strings.
-    buf[numbytes] = '\0';
-    printf("client: received '%s'\n", buf);
-
+    
 /******************************************************************************
 *******************************************************************************
 ******************************************************************************/
@@ -120,7 +108,7 @@ int main(int argc, char* argv[]) {
     ** client_main() is responsible for the main behavior of the program. 
     */
     int client_main_return = -1;
-    if (client_main_return = client_main(sockfd, (char* * const)&buf, MAXDATASIZE) != 0) {
+    if (client_main_return = client_main(sockfd, buf, MAXDATASIZE) != 0) {
         fprintf(
             stderr,
             "client367: ERROR(%d): Abnormal termination of communication with server\n",
