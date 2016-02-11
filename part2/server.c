@@ -27,6 +27,7 @@
 
 #include "common.h"
 #include "server_main.h"
+#include "client_main.h"        /* So we have the enum CLIENT_CHOICE */
 
 /******************************************************************************
 **
@@ -137,7 +138,47 @@ int main(void) {
     /*
     ** THE MAIN LOOP WHERE WE ARE READY TO ACCEPT STUFF DO STUFF HERE.   
     */
+    int num_connections = 0;
+
+    int pipe_in[MAXCONNECTIONS][2];
+    int pipe_out[MAXCONNECTIONS][2];
+
+    // Registry of which connection spots are open or closed. This is a bool.
+    int pipe_taken[MAXCONNECTIONS]; 
+    // It is empty, initially. Set all to 0.
+    memset((void*)pipe_taken, 0, sizeof(int)*MAXCONNECTIONS);
+    
     while (1) { // main accept() loop
+        /* Stall if we have reached maximum connections. */
+        if  (num_connections+1 > MAXCONNECTIONS) {
+            printf("server367: Max amount of connections reached; ");
+            printf("waiting for a disconnect\n");
+
+            /* ERROR: Wait failed. Error. */
+            if (wait(NULL) < 0) {
+                fprintf(stderr, "ERROR: wait() failed\n");
+                exit(3);
+            } else {
+                --num_connections;
+            }
+        }
+
+        /* Log the current connection number for the child. */
+        /* Find an open spot. */
+        int current_connection_no;
+        {
+            int j = 0;
+            /* We'll do a basic linear search. */
+            for(; j < MAXCONNECTIONS != j && pipe_taken[j] == 1; ++j);
+            printf("server367: new opening for connection found at slot %d\n", j);
+            /* Set the current connection number when a spot is found. */
+            current_connection_no = j;
+            /* Increase the total amount of connections. */
+            ++num_connections;
+        }
+        /* Reserve the found slot. */ 
+        pipe_taken[current_connection_no] = 1; 
+
         sin_size = sizeof(their_addr);
 
         // Accept a connection from a socket.
@@ -146,6 +187,9 @@ int main(void) {
         if (new_fd == -1) {
             perror("accept");
             continue;
+        } else {
+            /* Upon accepting a connection, increment the connection counter. */
+            ++num_connections;
         }
 
         // Convert the IP address to a string.
@@ -153,18 +197,43 @@ int main(void) {
             get_in_addr((struct sockaddr *)&their_addr),
             s,
             sizeof(s));
-        printf("server: got connection from %s\n", s);
+        printf("server367: got connection from %s\n", s);
 
+        /* Create pipes to communicate with the child process here. */
+        /* In a pipe, xx[0] is for reading, xx[1] is for writing */
+        if (pipe(pipe_in[current_connection_no]) < 0) {
+            perror("pipe in");
+            exit(2);
+        }
+        if (pipe(pipe_out[current_connection_no]) < 0) {
+            perror("pipe out");
+            exit(2);
+        }
+
+        int pid = fork();
         /*
         ** THIS IS WHERE WE BEGIN TO INTERACT WITH CONNECTIONS.
         ** THE PROGRAM FLOW SHOULD GO INTO SOME SORT OF PROCEDURE FUNCTION.
         ** 
         ** PASS BY REFERENCE!!!!!!
         */
-        if (!fork()) { // this is the child process
+        if (pid == 0) { // this is the child process
 
+            int pipe_no = current_connection_no;
             // First, close the parent process' socket.
             close(sockfd);
+        
+            /* Close the stdout and stderr sockets. */
+            close(0);
+            close(1);
+            close(2);
+            /* Make the pipe to the parent out stdin, stdout and stderr. */
+            dup2(pipe_in[pipe_no][0], 0);
+            dup2(pipe_out[pipe_no][1], 1); 
+            dup2(pipe_out[pipe_no][1], 2);
+            /* Close one side of the read/write pipes. */
+            close(pipe_in[pipe_no][1]);
+            close(pipe_out[pipe_no][0]);
 
             // Send a message; check for an error.
             if (send(new_fd, "Hello, world!", 14, 0) == -1)
@@ -173,31 +242,51 @@ int main(void) {
 /******************************************************************************
 *******************************************************************************
 ******************************************************************************/
-                
-                /*
-                **
-                ** server_main is where we handle connections with clients.
-                **
-                ** HERE IS WHERE WE HAVE OUR MAIN LOOP
-                */
-                int server_main_return = -1;
-                if (server_main_return = server_main(new_fd) != 0) {
-                    fprintf(
-                        stderr,
-                        "server367: ERROR(%d): Abnormal termination of connection with client.\n",
-                        server_main_return
-                    );
-                } else {
-                    fprintf(stdout, "server367: OK: Successful termination of connection\n");
-                }
+            printf("Sup\n");
+            /*
+            **
+            ** server_main is where we handle connections with clients.
+            **
+            ** HERE IS WHERE WE HAVE OUR MAIN LOOP
+            */
+            int server_main_return = -1;
+            if (server_main_return = server_main(new_fd) != 0) {
+                fprintf(
+                    stderr,
+                    "server367: ERROR(%d): Abnormal termination of connection with client.\n",
+                    server_main_return
+                );
+            } else {
+                fprintf(stdout, "server367: OK: Successful termination of connection\n");
+            } 
 
-                // Close our socket (REMEMBER TO DO THIS!)
-                close(new_fd);
-                exit(0);
-        }
+            // Close our parent-child pipes to flush. 
+            close(pipe_in[pipe_no][0]);
+            close(pipe_out[pipe_no][1]);
+            // Close our socket (REMEMBER TO DO THIS!)
+            close(new_fd);
+            // Release the connection from pipe_taken[pipe_no].
+            pipe_taken[pipe_no] = 0;
+
+            exit(0);
+        }    
 
         // PARENT: Close our reference to the child process' socket.
         close(new_fd);  // parent doesn't need this 
+        /* Parent also needs to close one side of the in/out sockets. */
+        close(pipe_in[current_connection_no][0]);
+        close(pipe_out[current_connection_no][1]);
+
+        char buffer[512] = "\0"; 
+        {
+             int i = 0; 
+             for (; i < MAXCONNECTIONS; ++i) {
+                 printf("Pipe #%d taken = %d\n", i, pipe_taken[i]);
+                 read(pipe_out[i][0], buffer, 512);
+                 buffer[512] = '\0';
+                 fprintf(stdout, "(%s): %s\n", s, buffer);
+             } i = 0;
+        }
     }
 
 /******************************************************************************

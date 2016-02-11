@@ -2,7 +2,7 @@
 
 int server_main(int sockfd) {
 
-    printf("Ending server_main(int sockfd)\n"); 
+    printf("Ending server_main()\n"); 
 
     return 0;
 }
