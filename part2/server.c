@@ -25,10 +25,8 @@
 **
 ******************************************************************************/
 
-
-#include "cmdserver/cmdserver_handler.h"  /* Contains the main accept loop 
-                                             behavior */
-
+#include "common.h"
+#include "server_main.h"
 
 /******************************************************************************
 **
@@ -171,7 +169,28 @@ int main(void) {
             // Send a message; check for an error.
             if (send(new_fd, "Hello, world!", 14, 0) == -1)
                 perror("send");
+             
+/******************************************************************************
+*******************************************************************************
+******************************************************************************/
                 
+                /*
+                **
+                ** server_main is where we handle connections with clients.
+                **
+                ** HERE IS WHERE WE HAVE OUR MAIN LOOP
+                */
+                int server_main_return = -1;
+                if (server_main_return = server_main(new_fd) != 0) {
+                    fprintf(
+                        stderr,
+                        "server367: ERROR(%d): Abnormal termination of connection with client.\n",
+                        server_main_return
+                    );
+                } else {
+                    fprintf(stdout, "server367: OK: Successful termination of connection\n");
+                }
+
                 // Close our socket (REMEMBER TO DO THIS!)
                 close(new_fd);
                 exit(0);
@@ -180,6 +199,10 @@ int main(void) {
         // PARENT: Close our reference to the child process' socket.
         close(new_fd);  // parent doesn't need this 
     }
+
+/******************************************************************************
+*******************************************************************************
+******************************************************************************/
 
     return 0;
 }

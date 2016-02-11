@@ -14,9 +14,21 @@
 
 #include <arpa/inet.h>
 
-#define PORT "3522"         // the port client will be connecting to
+/******************************************************************************
+**
+** BEGIN: USER INCLUDES
+**
+******************************************************************************/
 
-#define MAXDATASIZE 100     // max number of bytes we can get at once
+#include "common.h"
+#include "client_main.h"
+
+/******************************************************************************
+**
+** END: USER INCLUDES 
+**
+******************************************************************************/
+
 
 // get sockaddr, IPv4, IPv6:
 void* get_in_addr(struct sockaddr *sa) {
@@ -70,6 +82,7 @@ int main(int argc, char* argv[]) {
     // Failed to connect to a listener.
     if (p == NULL) {
         fprintf(stderr, "listener: failed to bind socket\n");
+        fprintf(stdout, "client367: Cannot connect to server\n");
         return 2;
     }
 
@@ -96,11 +109,31 @@ int main(int argc, char* argv[]) {
     // to parse using strings.
     buf[numbytes] = '\0';
     printf("client: received '%s'\n", buf);
-    /*
-    ** LOOP NEEDS TO BEGIN HERE!!!
-    */
 
-    close(sockfd);
+/******************************************************************************
+*******************************************************************************
+******************************************************************************/
+
+    /*
+    ** 
+    */
+    int client_main_return = -1;
+    if (client_main_return = client_main(sockfd, (char* * const)&buf, MAXDATASIZE) != 0) {
+        fprintf(
+            stderr,
+            "client367: ERROR(%d): Abnormal termination of communication with server.\n",
+            client_main_return
+        );
+    } else {
+        fprintf(
+            stdout,
+            "client367: OK: Terminated connection normally.\n"
+        );
+    }
+
+/******************************************************************************
+*******************************************************************************
+******************************************************************************/    close(sockfd);
 
     return 0;
 }
