@@ -19,9 +19,23 @@
                                    Windows problems     */
 #include <signal.h>             /* Used for POSIX signals for Linux.    */
 
-#define PORT "3522"
+/******************************************************************************
+**
+** BEGIN: USER INCLUDES 
+**
+******************************************************************************/
 
-#define BACKLOG 10
+
+#include "cmdserver/cmdserver_handler.h"  /* Contains the main accept loop 
+                                             behavior */
+
+
+/******************************************************************************
+**
+** END: USER INCLUDES
+**
+******************************************************************************/
+
 
 void sigchld_handler (int s) {
     // waitpid() might overwrite errno, so we save and restore it:
@@ -72,6 +86,7 @@ int main(void) {
 
     // loop through all the results and bind to the first we can
     for (p = servinfo; p != NULL; p = p->ai_next) {
+        // CONTINUE: The server has connected. 
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
             perror("server: socket");
@@ -97,11 +112,13 @@ int main(void) {
 
     freeaddrinfo(servinfo);     // all done with this structure
 
+    // ERROR: Server could not bind.
     if (p == NULL) {
         fprintf(stderr, "server: failed to bind\n");
         exit(1);
     }
 
+    // ERROR: Listen did not work.
     if (listen(sockfd, BACKLOG) == -1) {
         perror("listen");
         exit(1);
@@ -110,6 +127,8 @@ int main(void) {
     sa.sa_handler = sigchld_handler; // reap all dead processes
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
+
+    // WHAT.
     if (sigaction(SIGCHLD, &sa, NULL) == -1) {
         perror("sigaction");
         exit(1);
@@ -117,30 +136,49 @@ int main(void) {
 
     printf("server: waiting for connections...\n");
 
+    /*
+    ** THE MAIN LOOP WHERE WE ARE READY TO ACCEPT STUFF DO STUFF HERE.   
+    */
     while (1) { // main accept() loop
         sin_size = sizeof(their_addr);
+
+        // Accept a connection from a socket.
         new_fd = accept(sockfd, (struct sockaddr*)&their_addr, &sin_size);
+        // ERROR: ACCEPTING DID NOT WORK!
         if (new_fd == -1) {
             perror("accept");
             continue;
         }
 
+        // Convert the IP address to a string.
         inet_ntop(their_addr.ss_family,
             get_in_addr((struct sockaddr *)&their_addr),
             s,
             sizeof(s));
         printf("server: got connection from %s\n", s);
 
+        /*
+        ** THIS IS WHERE WE BEGIN TO INTERACT WITH CONNECTIONS.
+        ** THE PROGRAM FLOW SHOULD GO INTO SOME SORT OF PROCEDURE FUNCTION.
+        ** 
+        ** PASS BY REFERENCE!!!!!!
+        */
         if (!fork()) { // this is the child process
+
+            // First, close the parent process' socket.
             close(sockfd);
+
+            // Send a message; check for an error.
             if (send(new_fd, "Hello, world!", 14, 0) == -1)
                 perror("send");
-
+                
+                // Close our socket (REMEMBER TO DO THIS!)
                 close(new_fd);
                 exit(0);
         }
-        close(new_fd);  // parent doesn't need this
 
+        // PARENT: Close our reference to the child process' socket.
+        close(new_fd);  // parent doesn't need this 
     }
 
     return 0;
