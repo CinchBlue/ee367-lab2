@@ -123,13 +123,13 @@ int main(int argc, char* argv[]) {
     if (client_main_return = client_main(sockfd, (char* * const)&buf, MAXDATASIZE) != 0) {
         fprintf(
             stderr,
-            "client367: ERROR(%d): Abnormal termination of communication with server.\n",
+            "client367: ERROR(%d): Abnormal termination of communication with server\n",
             client_main_return
         );
     } else {
         fprintf(
             stdout,
-            "client367: OK: Terminated connection normally.\n"
+            "client367: OK: Terminated connection normally\n"
         );
     }
 
