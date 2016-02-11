@@ -70,6 +70,7 @@ int main(int argc, char* argv[]) {
             perror("client: socket"); continue;
         }
 
+        // connect() to use recv()
         if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             close(sockfd);
             perror("client: connect");
@@ -92,6 +93,7 @@ int main(int argc, char* argv[]) {
 
     // Now the IP address is in <s>
     // Print the IP address.
+    
     printf("client connecting to %s\n", s);
 
     freeaddrinfo(servinfo); // all done with this structure
@@ -115,7 +117,7 @@ int main(int argc, char* argv[]) {
 ******************************************************************************/
 
     /*
-    ** 
+    ** client_main() is responsible for the main behavior of the program. 
     */
     int client_main_return = -1;
     if (client_main_return = client_main(sockfd, (char* * const)&buf, MAXDATASIZE) != 0) {
