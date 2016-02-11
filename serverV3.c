@@ -83,6 +83,7 @@ int main(void) {
 
 	freeaddrinfo(servinfo); // all done with this structure
 
+    // ERROR: Listen
 	if (listen(sockfd, BACKLOG) == -1) {
 		perror("listen");
 		exit(1);
@@ -98,6 +99,9 @@ int main(void) {
 
 	printf("server: waiting for connections...\n");
 
+    /*
+    ** MAIN ACCEPT LOOP
+    */
 	while (1) {  // main accept() loop
 		sin_size = sizeof their_addr;
 		new_fd = accept(sockfd, (struct sockaddr *) &their_addr, &sin_size);
@@ -106,9 +110,12 @@ int main(void) {
 			continue;
 		}
 
+        // Get the ID address as a string.
 		inet_ntop(their_addr.ss_family,
 				get_in_addr((struct sockaddr *) &their_addr), s, sizeof s);
 		printf("server: got connection from %s\n", s);
+
+
 
 		if (!fork()) { // this is the child process
 			close(sockfd); // child doesn't need the listener
@@ -122,20 +129,18 @@ int main(void) {
 			FILE *popen();
 			int i, j;
 
-
+                
+                // Receive from the server.
 				numbytes = 0;
-				if ((numbytes = recvfrom(new_fd, buffer, MAXDATASIZE, 0,
-						(struct sockaddr *) &their_addr, &addr_len)) == -1) {
+				if ((numbytes = recvfrom(new_fd, buffer, MAXDATASIZE, 0) == -1) {
 					perror("recvfrom");
 				}
 				buffer[numbytes] = '\0';
-				printf("listener: got packet from %s\n",
-						inet_ntop(their_addr.ss_family,
-								get_in_addr((struct sockaddr *) &their_addr), s,
-								sizeof s));
+				printf("listener: got packet from %s\n", s);
 				printf("listener: packet is %d bytes long\n", numbytes);
 				printf("listener: packet contains\n");
 
+                /* PARSER: REPLACE THIS WITH MASTER BRANCH PARSER. */
 				for (i = 0; i < numbytes; i++) {
 					printf("%c", buffer[i]);
 					if (buffer[i] == ' ') {
@@ -144,38 +149,47 @@ int main(void) {
 					}
 				}
 
-
+                /* ERROR: pipe reading */
 				if (!(out = popen(buffer, "r"))) {
 					printf("error");
 				}
+
+                /* Transfer the stuff into the buffer2 buffers */
 				int count = 0;
-				while (fgets(&buffer2[count][0], MAXDATASIZE, out) != NULL || count<100) {
+				while (fgets(&buffer2[count][0], MAXDATASIZE, out) != NULL ||
+                       count<100) {
 					printf("%s", &buffer2[count][0]);
 					count++;
 				}
 
+                /* Turning the <count> variable into a string. */
 				char str[15];
 				sprintf(str, "%d", count);
 
-				if (sendto(new_fd, str, strlen(str)-1, MSG_CONFIRM,
-						(struct sockaddr *) &their_addr, addr_len) == -1) {
+                /* ERROR: Send */
+				if (send(new_fd, str, strlen(str)-1, MSG_CONFIRM) == -1) {
 					perror("send");
 				}
 
 				i=0;
 				while(i<count)
 				{
-				sleep(2);
+				    sleep(2);
 
-				if (sendto(new_fd, &buffer2[i][0], strlen(&buffer2[i][0])-1, MSG_CONFIRM,
-						(struct sockaddr *) &their_addr, addr_len) == -1) {
-					perror("send");
+				    if (send(new_fd,
+                             &buffer2[i][0],
+                             strlen(&buffer2[i][0])-1,
+                             MSG_CONFIRM) == -1) {
+				    	perror("send");
+				    }
+				    i++;
 				}
-				i++;
-				}
+
+                // Cleanup of pipes.
 				pclose(out);
 
 
+            /* Close the socket. */
 			close(new_fd);
 			exit(0);
 		}
