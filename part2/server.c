@@ -35,6 +35,11 @@
 **
 ******************************************************************************/
 
+int pipe_in[MAXCONNECTIONS][2];
+int pipe_out[MAXCONNECTIONS][2];
+// Registry of which connection spots are open or closed. This is a bool.
+int pipe_taken[MAXCONNECTIONS]; 
+
 
 void sigchld_handler (int s) {
     // waitpid() might overwrite errno, so we save and restore it:
@@ -44,9 +49,20 @@ void sigchld_handler (int s) {
     ** - Loop until children exist and children have not yet changed state,
     **   or an error occurs.
     ** - Do not block.
+    ** - Find the correspnding element in the pipe_taken table and change that
+    **   PID to 0.
     */
-    while(waitpid(-1, NULL, WNOHANG) > 0);
-
+    int pid = 0; 
+    while(pid = waitpid(-1, NULL, WNOHANG) > 0) {
+        int j = 0;
+        for(; j < MAXCONNECTIONS; ++j) {
+            if (pipe_taken[j] == pid) {
+                printf("server367: killed pid %d on pipe[%d]\n", pid, j);
+                pipe_taken[j] = 0;
+            }
+        }
+    }
+    
     errno = saved_errno;
 }
 
@@ -58,6 +74,12 @@ void* get_in_addr(struct sockaddr* sa) {
         return &(((struct sockaddr_in6*)sa)->sin6_addr);
     }
 }
+
+
+
+
+
+
 
 int main(void) {
     // listen on sock_fd, new connection on new_fd
@@ -139,12 +161,6 @@ int main(void) {
     ** THE MAIN LOOP WHERE WE ARE READY TO ACCEPT STUFF DO STUFF HERE.   
     */
     int num_connections = 0;
-
-    int pipe_in[MAXCONNECTIONS][2];
-    int pipe_out[MAXCONNECTIONS][2];
-
-    // Registry of which connection spots are open or closed. This is a bool.
-    int pipe_taken[MAXCONNECTIONS]; 
     // It is empty, initially. Set all to 0.
     memset((void*)pipe_taken, 0, sizeof(int)*MAXCONNECTIONS);
     
@@ -156,29 +172,10 @@ int main(void) {
 
             // Release the connection from pipe_taken[pipe_no].
            // pipe_taken[pipe_no] = 0;
-
-
-
-
-
-        k=0; 
+        k=0;
+        printf("(");
         for(; k < MAXCONNECTIONS; ++k)
-            printf("%d", pipe_taken[k]);
-            printf("\n");
-
-
-        if  (num_connections+1 > MAXCONNECTIONS) {
-            printf("server367: Max amount of connections reached; ");
-            printf("waiting for a disconnect\n");
-
-            /* ERROR: Wait failed. Error. */
-            if (wait(NULL) < 0) {
-                fprintf(stderr, "ERROR: wait() failed\n");
-                exit(3);
-            } else {
-                --num_connections;
-            }
-        }
+            printf("%d,", pipe_taken[k]); printf(")\n");
 
         sin_size = sizeof(their_addr);
 
@@ -207,13 +204,6 @@ int main(void) {
             ++num_connections;
             j = 0;
         }
-        /* Reserve the found slot. */ 
-        pipe_taken[current_connection_no] = 1; 
-
-        k=0; 
-        for(; k < MAXCONNECTIONS; ++k)
-            printf("%d", pipe_taken[k]);
-            printf("\n");
 
         // Convert the IP address to a string.
         inet_ntop(their_addr.ss_family,
@@ -299,8 +289,9 @@ int main(void) {
 ** PARENT
 ******************************************************************************/
         
-        // PARENT: 
-
+        // PARENT:     
+        /* Reserve the found slot. */ 
+        pipe_taken[current_connection_no] = pid; 
 
 
         // PARENT: Close our reference to the child process' socket.

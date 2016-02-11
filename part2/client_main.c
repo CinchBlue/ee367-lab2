@@ -21,7 +21,8 @@
 **          The maximum size of a single token buffer.
 **
 */
-int tokenize_input(char* buf, int str_maxsize, char* tokens, int token_maxsize) {
+int tokenize_input(char* buf, int str_maxsize, char* tokens, int token_maxsize,
+                   int token_no) {
     // Use the saveptr to be able to execute more than 1 strtok_r()
     // in parallel.
     char* strtok_saveptr1 = NULL;
@@ -35,10 +36,8 @@ int tokenize_input(char* buf, int str_maxsize, char* tokens, int token_maxsize) 
                 &strtok_saveptr1
             );
     // here, we use the whitespace characters as delimiters.
-    while ( temp != NULL && (++token_count) < 2) {
+    while ( temp != NULL && (++token_count) < token_no) {
         // every time we make a new token, increment the token count.
-        char prompt_temp[str_maxsize]; //DEBUG
-        prompt(temp, prompt_temp, str_maxsize); //DEBUG
         // copy the token to the tokens buffer.
         memcpy(
             &tokens[token_count*token_maxsize],
@@ -68,7 +67,6 @@ int tokenize_input(char* buf, int str_maxsize, char* tokens, int token_maxsize) 
 */
 CLIENT_CHOICE parse_client_choice(char* str) {
     int i = strlen(str);
-    printf("STRLEN OF BEGIN TOKEN PARSE: %d\n", i);
 
     /* CLIENT_CHOICE_INVALID: We reached the end of the string. */
     if ( (*str) == '\0' ) {
@@ -167,8 +165,6 @@ CLIENT_CHOICE parse_client_choice(char* str) {
 **          The maximum size of the INCOMING data buffer.
 */
 int client_main(int sockfd, char* buffer, int buffer_maxsize ) {
-    /* Set a zero-length string as the default value for the console buffer. */
-    char console_buffer[MAXDATASIZE] = "\0";
     /* Start in an INVALID state for the client choice. */
     CLIENT_CHOICE client_choice = CLIENT_CHOICE_INVALID;
     /* Assume normal termination client_main(). Change upon ERROR. */
@@ -192,12 +188,80 @@ int client_main(int sockfd, char* buffer, int buffer_maxsize ) {
     printf("client: received '%s'\n", buffer);
 
 
+
+
+    /* Set a zero-length string as the default value for the console buffer. */
+    char console_buffer[MAXDATASIZE];
+    char tokens[2][MAXDATASIZE];
+
+    /* Set the buffers to 0. */
+    memset(console_buffer, 0, sizeof(char)*MAXDATASIZE);
+    memset(tokens, 0, sizeof(char)*2*MAXDATASIZE);
+
+    /**************************************************************************
+    ** WELCOME PROMPT: 
+    **************************************************************************/
+    printf("Welcome to the EE367 Client/Server Project!   \n");
+    printf("================= COMMANDS ==================\n");
+    printf("(list, check <file name>, display <file name>,\n");
+    printf(" download <file name>, quit, help)\n\n");
+
     /**************************************************************************
     **  MAIN LOOP:
     **************************************************************************/
     do {
-        printf("client367: Automatically setting CLIENT_CHOICE_QUIT\n");
-        client_choice = CLIENT_CHOICE_QUIT;
+        /* Set the buffers to 0. */
+        memset(console_buffer, 0, sizeof(char)*MAXDATASIZE);
+        memset(tokens, 0, sizeof(char)*2*MAXDATASIZE);
+        /* Ask for input with the prompt. */
+        prompt("client367: ", console_buffer, MAXDATASIZE);
+        /* Parse the prompt into tokens. */
+        int token_count = tokenize_input(
+           console_buffer,
+           MAXDATASIZE,
+           (char*)(tokens),
+           MAXDATASIZE,
+           2
+        );
+        /* Get the command asked for: */
+        client_choice = parse_client_choice(tokens[0]);
+
+
+
+
+        /* Send the appropriate data according to the command. */
+        switch (client_choice) {
+            case CLIENT_CHOICE_LIST:
+                //if (client_list(sockfd, buffer, buffer_maxsize) < 0) { }
+                break;
+            
+            case CLIENT_CHOICE_CHECK:
+                //if (client_check(sockfd, buffer, buffer_maxsize) < 0) { }
+                break;
+
+            case CLIENT_CHOICE_DISPLAY:
+                //if (client_display(sockfd, buffer, buffer_maxsize) < 0) { }
+                break;
+
+            case CLIENT_CHOICE_DOWNLOAD:
+                //if (client_download(sockfd, buffer, buffer_maxsize) < 0) { }
+                break;
+
+            case CLIENT_CHOICE_QUIT:
+                printf("Quitting program...\n");
+                break;
+
+            case CLIENT_CHOICE_HELP: 
+                //client_help(); 
+                break;
+
+            case CLIENT_CHOICE_INVALID:
+            default:
+                printf("Invalid input. Please input a valid command.\n");
+                break;
+        }
+
+        /* Continue to loop until we quit. */
     } while (client_choice != CLIENT_CHOICE_QUIT);
 
     return return_status;
@@ -222,7 +286,8 @@ int main() {
         buf,
         MAXDATASIZE,
         (char*)(tokens),
-        MAXDATASIZE
+        MAXDATASIZE,
+        2
     );
 
     printf("TOKEN COUNT: %d\n", token_count);

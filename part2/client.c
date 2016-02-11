@@ -67,13 +67,13 @@ int main(int argc, char* argv[]) {
     for (p = servinfo; p != NULL; p = p->ai_next) {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
-            perror("client: socket"); continue;
+            perror("ERROR: socket"); continue;
         }
 
         // connect() to use recv()
         if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             close(sockfd);
-            perror("client: connect");
+            perror("ERROR: connect");
             continue;
         }
 
@@ -82,8 +82,8 @@ int main(int argc, char* argv[]) {
     
     // Failed to connect to a listener.
     if (p == NULL) {
-        fprintf(stderr, "listener: failed to bind socket\n");
-        fprintf(stdout, "client367: Cannot connect to server\n");
+        fprintf(stderr, "ERROR: listener: failed to bind socket\n");
+        fprintf(stdout, "ERROR: Cannot connect to server\n");
         return 2;
     }
 
@@ -111,13 +111,13 @@ int main(int argc, char* argv[]) {
     if (client_main_return = client_main(sockfd, buf, MAXDATASIZE) != 0) {
         fprintf(
             stderr,
-            "client367: ERROR(%d): Abnormal termination of communication with server\n",
+            "ERROR(%d): Abnormal termination of communication with server\n",
             client_main_return
         );
     } else {
         fprintf(
             stdout,
-            "client367: OK: Terminated connection normally\n"
+            "OK: Terminated connection normally\n"
         );
     }
 
