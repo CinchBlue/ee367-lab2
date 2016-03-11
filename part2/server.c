@@ -35,12 +35,6 @@
 **
 ******************************************************************************/
 
-int pipe_in[MAXCONNECTIONS][2];
-int pipe_out[MAXCONNECTIONS][2];
-// Registry of which connection spots are open or closed. This is a bool.
-int pipe_taken[MAXCONNECTIONS]; 
-
-
 void sigchld_handler (int s) {
     // waitpid() might overwrite errno, so we save and restore it:
     int saved_errno = errno;
@@ -52,16 +46,7 @@ void sigchld_handler (int s) {
     ** - Find the correspnding element in the pipe_taken table and change that
     **   PID to 0.
     */
-    int pid = 0; 
-    while(pid = waitpid(-1, NULL, WNOHANG) > 0) {
-        int j = 0;
-        for(; j < MAXCONNECTIONS; ++j) {
-            if (pipe_taken[j] == pid) {
-                printf("server367: killed pid %d on pipe[%d]\n", pid, j);
-                pipe_taken[j] = 0;
-            }
-        }
-    }
+    while(waitpid(-1, NULL, WNOHANG) > 0);
     
     errno = saved_errno;
 }
@@ -160,22 +145,9 @@ int main(void) {
     /*
     ** THE MAIN LOOP WHERE WE ARE READY TO ACCEPT STUFF DO STUFF HERE.   
     */
-    int num_connections = 0;
-    // It is empty, initially. Set all to 0.
-    memset((void*)pipe_taken, 0, sizeof(int)*MAXCONNECTIONS);
     
     while (1) { // main accept() loop
         /* Stall if we have reached maximum connections. */
-
-        int k;
-        
-
-            // Release the connection from pipe_taken[pipe_no].
-           // pipe_taken[pipe_no] = 0;
-        k=0;
-        printf("(");
-        for(; k < MAXCONNECTIONS; ++k)
-            printf("%d,", pipe_taken[k]); printf(")\n");
 
         sin_size = sizeof(their_addr);
 
@@ -185,24 +157,6 @@ int main(void) {
         if (new_fd == -1) {
             perror("accept");
             continue;
-        } else {
-            /* Upon accepting a connection, increment the connection counter. */
-            ++num_connections;
-        }
-
-	    /* Log the current connection number for the child. */
-        /* Find an open spot. */
-        int current_connection_no;
-        {
-            int j = 0;
-            /* We'll do a basic linear search. */
-            for(; j < MAXCONNECTIONS && pipe_taken[j] == 1; ++j);
-            printf("server367: new opening for connection found at slot %d\n", j);
-            /* Set the current connection number when a spot is found. */
-            current_connection_no = j;
-            /* Increase the total amount of connections. */
-            ++num_connections;
-            j = 0;
         }
 
         // Convert the IP address to a string.
@@ -212,13 +166,16 @@ int main(void) {
             sizeof(s));
         printf("server367: got connection from %s\n", s);
 
+        int pipe_in[2];
+        int pipe_out[2];
+
         /* Create pipes to communicate with the child process here. */
         /* In a pipe, xx[0] is for reading, xx[1] is for writing */
-        if (pipe(pipe_in[current_connection_no]) < 0) {
+        if (pipe(pipe_in) < 0) {
             perror("pipe in");
             exit(2);
         }
-        if (pipe(pipe_out[current_connection_no]) < 0) {
+        if (pipe(pipe_out) < 0) {
             perror("pipe out");
             exit(2);
         }
@@ -232,7 +189,6 @@ int main(void) {
         */
         if (pid == 0) { // this is the child process
 
-            int pipe_no = current_connection_no;
             // First, close the parent process' socket.
             close(sockfd);
         
@@ -241,12 +197,15 @@ int main(void) {
             close(1);
             close(2);
             /* Make the pipe to the parent out stdin, stdout and stderr. */
-            dup2(pipe_in[pipe_no][0], 0);
-            dup2(pipe_out[pipe_no][1], 1); 
-            dup2(pipe_out[pipe_no][1], 2);
+            dup2(pipe_in[0], 0);
+            dup2(pipe_out[1], 1); 
+            dup2(pipe_out[1], 2);
             /* Close one side of the read/write pipes. */
-            close(pipe_in[pipe_no][1]);
-            close(pipe_out[pipe_no][0]);
+            close(pipe_in[1]);
+            close(pipe_out[0]);
+
+
+            write(pipe_out[1], "HereIAm", 8); 
 
             // Send a message; check for an error.
             if (send(new_fd, "Hello, world!", 14, 0) == -1)
@@ -272,16 +231,12 @@ int main(void) {
                 fprintf(stdout, "server367: OK: Successful termination of connection\n");
             } 
 
-            fprintf(stdout, "server367: Releasing pipe[%d]\n", pipe_no);
-
             // Close our parent-child pipes to flush. 
-            close(pipe_in[pipe_no][0]);
-            close(pipe_out[pipe_no][1]);
+            close(pipe_in[0]);
+            close(pipe_out[1]);
             // Close our socket (REMEMBER TO DO THIS!)
             close(new_fd);
-            
-
-
+        
             exit(0);
         }    
 
@@ -289,31 +244,21 @@ int main(void) {
 ** PARENT
 ******************************************************************************/
         
-        // PARENT:     
-        /* Reserve the found slot. */ 
-        pipe_taken[current_connection_no] = pid; 
-
+        // PARENT:    
+          
 
         // PARENT: Close our reference to the child process' socket.
         close(new_fd);  // parent doesn't need this 
         /* Parent also needs to close one side of the in/out sockets. */
-        close(pipe_in[current_connection_no][0]);
-        close(pipe_out[current_connection_no][1]);
+        close(pipe_in[0]);
+        close(pipe_out[1]);
 
         char buffer[512] = "\0"; 
-        {
-            int i = 0; 
-	        /* Go through the connections, check for reads. */
-            for (; i < MAXCONNECTIONS; ++i) {
-		 
-		        if (pipe_taken[i] == 1) { 
-		        	printf("\tserver367: Pipe[%d] is occupied.\n", i);
-                    read(pipe_out[i][0], buffer, 512); 
-                    buffer[512] = '\0';
-                    fprintf(stdout, "\t(%s): %s", s, buffer);
-		        }
-            } i = 0;
-        }
+        /* Read from the output of the children processes. */ 
+        int read_bytes = read(pipe_out[0], buffer, 512-1); 
+        buffer[read_bytes] = '\0';
+        printf( "\t(%s): %s", s, buffer);
+        // printf("Bytes read from child: %d\n", read_bytes);
     }
 
 /******************************************************************************
